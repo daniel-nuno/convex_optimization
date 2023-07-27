@@ -1,0 +1,1178 @@
+---
+title: "HW 12 regression in r"
+author:
+  - 'Alumno: Daniel Nuño, daniel.nuno@iteso.mx'
+  - 'Alumno: David Cisneros'
+  - 'Alumno: Juan Maro Ochoa'
+  - 'Alumno: Rodrigo Huerta'
+date: "4/18/2022"
+output:
+  html_notebook:
+    toc: yes
+    toc_float: yes
+    theme: cosmo
+    highlight: tango
+  github_document:
+    toc: yes
+    dev: jpeg
+  html_document:
+    toc: yes
+    df_print: paged
+  pdf_document:
+    toc: yes
+subtitle: Problem 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Problem 2: Application Problems #
+
+Note that some details are missing for all the following examples, the problems lack a complete explanation, and the code may need adequate comments. In this form, you must present a proper mathematical formulation, a brief background of the problem (and its bibliographical references) and, a much better explanation.
+
+- The olsrr packeage
+    (a) [Introduction to olsrr](https://olsrr.rsquaredacademy.com/articles/intro.html)
+    (b) [Variable Selection Methods](https://olsrr.rsquaredacademy.com/articles/variable_selection.html)
+    (c) [Residual Diagnostics](https://olsrr.rsquaredacademy.com/articles/residual_diagnostics.html)
+    (d) [Heteroscedasticity](https://olsrr.rsquaredacademy.com/articles/heteroskedasticity.html)
+    (e) [Measures of Influence](https://olsrr.rsquaredacademy.com/articles/influence_measures.html)
+    (f) [Collinearity Diagnostics, Model Fit & Variable Contribution](https://olsrr.rsquaredacademy.com/articles/regression_diagnostics.html)
+- The blorr package
+    (a) [A Short Introduction to the blorr Package](https://blorr.rsquaredacademy.com/articles/introduction.html)
+
+## Introduction to olsrr ##
+This document is a quick start guide to the tools offered by olsrr. Other vignettes provide more details on specific topics:
+- Residual Diagnostics: Includes plots to examine residuals to validate OLS assumptions
+- Variable selection: Different variable selection procedures such as all possible regression, best subset regression, stepwise regression, stepwise forward regression and stepwise backward regression
+- Heteroskedasticity: Tests for heteroskedasticity include bartlett test, breusch pagan test, score test and f test
+- Measures of influence: Includes 10 different plots to detect and identify influential observations
+- Collinearity diagnostics: VIF, Tolerance and condition indices to detect collinearity and plots for assessing mode fit and contributions of variables
+
+This example uses **mtcars** dataset. This dataset contains a subset of the fuel economy data that the EPA makes available on https://fueleconomy.gov/. It contains only models which had a new release every year between 1999 and 2008 - this was used as a proxy for the popularity of the car.
+
+A data frame with 234 rows and 11 variables:
+
+- manufacturer: manufacturer name
+- model: model name
+- displ: engine displacement, in litres
+- year: year of manufacture
+- cyl: number of cylinders
+- trans: type of transmission
+- drv: the type of drive train, where f = front-wheel drive, r = rear wheel drive, 4 = 4wd
+- cty: city miles per gallon
+- hwy: highway miles per gallon
+- fl: fuel type
+- class: "type" of car
+
+### Regression ###
+
+```{r cars}
+library(olsrr)
+ols_regress(mpg ~ disp + hp + wt + qsec, data = mtcars)
+```
+
+In the presence of interaction terms in the model, the predictors are scaled and centered before computing the standardized betas. `ols_regress()` will detect interaction terms automatically but in case you have created a new variable instead of using the inline function `*`, you can indicate the presence of interaction terms by setting `iterm` to `TRUE`.
+
+### Residual vs Fitted Values Plot ###
+Plot to detect non-linearity, unequal error variances, and outliers.
+Each point is the error in each vector. Red line just marks the 0 to have a visual benchmark.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_fit(model)
+```
+### DFBETAs Panel ###
+DFBETAs measure the difference in each parameter estimate with and without the influential observation. `dfbetas_panel` creates plots to detect influential observations using DFBETAs.
+
+Belsley, Kuh, and Welsch MATH sugirieron una estadística que indica cuanto el coeficiente de regresión estimado $b_{i}$ cambia, en unidades de desviaciones estándar, si la $i-\acute {e}sima$ observación fuera eliminada. La estadística es
+
+$$ DFBETAS_{i,j} = \frac{b_{i}-b_{j(i)}}{\sqrt{s^2_{i}C_{jj}}} $$
+Donde MATH es la varianza del coeficiente de regresión $b_{j}$ calculada sin la $i-\acute{e}sima$ observación. Un valor grande de DFBETAS$_{j,i}$ indica que la $i-\acute{e}sima$ observación tiene una considerable influencia sobre el $j-\acute{e}simo$ coeficiente de regresión $b_{j}$. 
+[reference](http://red.unal.edu.co/cursos/ciencias/2007315/html/un6/cont_12_73.html)
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt, data = mtcars)
+ols_plot_dfbetas(model)
+```
+
+### Residual Fit Spread Plot
+
+Plot to detect non-linearity, influential observations and outliers.
+
+Each spread plot is a graph of centered data values plotted against the estimated cumulative probability. Thus, spread plots are similar to a (rotated) plot of the empirical cumulative distribution function. [reference](https://blogs.sas.com/content/iml/2013/06/12/interpret-residual-fit-spread-plot.html)
+
+```{r rfsplot2, fig.width=10, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_fit_spread(model)
+```
+### Breusch Pagan Test
+
+Breusch Pagan test is used to test for herteroskedasticity (non-constant error variance). It tests whether the variance of the errors from a regression is dependent on the values of the independent variables. It is a $\chi^{2}$ test.
+
+Null hypothesis implies the variance is constant and using an alpha of 0.05 then in this case we reject the null hypothesis because p-value is 0.23
+
+```{r bp12}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model)
+```
+
+### Collinearity Diagnostics
+collinearity, in statistics, correlation between predictor variables (or independent variables), such that they express a linear relationship in a regression model. When predictor variables in the same regression model are correlated, they cannot independently predict the value of the dependent variable.
+```{r colldiag1}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_coll_diag(model)
+```
+
+### Stepwise Regression
+
+Build regression model from a set of candidate predictor variables by entering and removing predictors based on p values, in a stepwise manner until there is no variable left to enter or remove any more.
+
+Here p-value and Akaike Information Criterion are used to decide which model is the best in each step of the algorithm.
+
+### Variable Selection
+
+```{r stepwise22}
+# stepwise regression
+model <- lm(y ~ ., data = surgical)
+ols_step_both_p(model)
+```
+
+### Plot
+
+```{r stepwise21, fig.width=10, fig.height=15, fig.align='center'}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_both_p(model)
+plot(k)
+```
+
+###Stepwise AIC Backward Regression
+
+Build regression model from a set of candidate predictor variables by removing predictors based on Akaike Information Criteria, in a stepwise manner until there is no variable left to remove any more.
+
+###Variable Selection
+```{r stepaicb11}
+# stepwise aic backward regression
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_backward_aic(model)
+k
+```
+
+### Plot
+
+```{r stepaicb21, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_backward_aic(model)
+plot(k)
+```
+
+## Variable Selection Methods ##
+```{r, echo=FALSE, message=FALSE}
+library(olsrr)
+library(ggplot2)
+library(gridExtra)
+library(nortest)
+library(goftest)
+```
+
+<style type="text/css">
+#best-subset-regression pre { /* Code block */
+  font-size: 10px
+}
+</style>
+
+### Introduction
+
+### All Possible Regression
+
+All subset regression tests, all possible subsets of the set of potential independent variables. If there are K potential independent variables (besides the constant), then there are $2^{k}$ distinct subsets of them to be tested. For example, if you have 10 candidate independent variables, the number of subsets to be tested is $2^{10}$, which is 1024, and if you have 20 candidate variables, the number is $2^{20}$, which is more than one million.
+
+```{r allsub}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_step_all_possible(model)
+```
+
+The `plot` method shows the panel of fit criteria for all possible regression methods. 
+
+```{r allsubplot, fig.width=10, fig.height=10, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+k <- ols_step_all_possible(model)
+plot(k)
+```
+
+### Best Subset Regression
+
+Select the subset of predictors that do the best at meeting some well-defined objective criterion, such as having the largest R2 value or the smallest MSE, Mallow's Cp or AIC.
+
+```{r bestsub, size='tiny'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_step_best_subset(model)
+```
+
+The `plot` method shows the panel of fit criteria for best subset regression methods. 
+
+```{r bestsubplot, fig.width=10, fig.height=10, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+k <- ols_step_best_subset(model)
+plot(k)
+```
+
+### Stepwise Forward Regression
+
+Build regression model from a set of candidate predictor variables by entering predictors based on p values, in a stepwise manner until there is no variable left to enter any more. The model should include all the candidate predictor variables. If details is set to `TRUE`, each step is displayed.
+
+##### Variable Selection
+
+```{r stepf1}
+# stepwise forward regression
+model <- lm(y ~ ., data = surgical)
+ols_step_forward_p(model)
+```
+
+#### Plot
+
+```{r stepf2, fig.width=10, fig.height=10, fig.align='center'}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_forward_p(model)
+plot(k)
+```
+
+#### Detailed Output
+
+```{r stepwisefdetails}
+# stepwise forward regression
+model <- lm(y ~ ., data = surgical)
+ols_step_forward_p(model, details = TRUE)
+```
+
+### Stepwise Backward Regression
+
+Build regression model from a set of candidate predictor variables by removing predictors based on p values, in a stepwise manner until there is no variable left to remove any more. The model should include all the candidate predictor variables. If details is set to `TRUE`, each step is displayed.
+
+#### Variable Selection
+
+```{r stepb, fig.width=10, fig.height=10, fig.align='center'}
+# stepwise backward regression
+model <- lm(y ~ ., data = surgical)
+ols_step_backward_p(model)
+```
+
+#### Plot
+
+```{r stepb2, fig.width=10, fig.height=10, fig.align='center'}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_backward_p(model)
+plot(k)
+```
+
+#### Detailed Output
+
+```{r stepwisebdetails}
+# stepwise backward regression
+model <- lm(y ~ ., data = surgical)
+ols_step_backward_p(model, details = TRUE)
+```
+
+### Stepwise Regression
+
+Build regression model from a set of candidate predictor variables by entering and removing predictors based on p values, in a stepwise manner until there is no variable left to enter or remove any more. The model should include all the candidate predictor variables. If details is set to `TRUE`, each step is displayed.
+
+#### Variable Selection
+```{r stepwise12}
+# stepwise regression
+model <- lm(y ~ ., data = surgical)
+ols_step_both_p(model)
+```
+
+#### Plot
+
+```{r stepwise23, fig.width=10, fig.height=10, fig.align='center'}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_both_p(model)
+plot(k)
+```
+
+#### Detailed Output
+
+```{r stepwisedetails}
+# stepwise regression
+model <- lm(y ~ ., data = surgical)
+ols_step_both_p(model, details = TRUE)
+```
+
+### Stepwise AIC Forward Regression
+
+Build regression model from a set of candidate predictor variables by entering predictors based on Akaike Information Criteria, in a stepwise manner until there is no variable left to enter any more.
+
+The model should include all the candidate predictor variables. If details is set to `TRUE`, each step is displayed.
+
+#### Variable Selection
+
+```{r stepaicf1}
+# stepwise aic forward regression
+model <- lm(y ~ ., data = surgical)
+ols_step_forward_aic(model)
+```
+
+#### Plot
+
+```{r stepaicf2, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_forward_aic(model)
+plot(k)
+```
+
+#### Detailed Output
+
+```{r stepwiseaicfdetails}
+# stepwise aic forward regression
+model <- lm(y ~ ., data = surgical)
+ols_step_forward_aic(model, details = TRUE)
+```
+
+### Stepwise AIC Backward Regression
+
+Build regression model from a set of candidate predictor variables by removing predictors based on Akaike Information Criteria, in a stepwise manner until there is no variable left to remove any more. The model should include all the candidate predictor variables. If details is set to `TRUE`, each step is displayed.
+
+#### Variable Selection
+
+```{r stepaicb12}
+# stepwise aic backward regression
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_backward_aic(model)
+k
+```
+
+#### Plot
+
+```{r stepaicb22, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_backward_aic(model)
+plot(k)
+```
+
+#### Detailed Output
+
+```{r stepwiseaicbdetails}
+# stepwise aic backward regression
+model <- lm(y ~ ., data = surgical)
+ols_step_backward_aic(model, details = TRUE)
+```
+
+### Stepwise AIC Regression
+
+Build regression model from a set of candidate predictor variables by entering and removing predictors based on Akaike Information Criteria, in a stepwise manner until there is no variable left to enter or remove any more. The model should include all the candidate predictor variables. If details is set to `TRUE`, each step is displayed.
+
+#### Variable Selection
+
+```{r stepwiseaic1}
+# stepwise aic regression
+model <- lm(y ~ ., data = surgical)
+ols_step_both_aic(model)
+```
+
+#### Plot
+
+```{r stepwiseaic2, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_both_aic(model)
+plot(k)
+```
+
+#### Detailed Output
+
+```{r stepwiseaicdetails}
+# stepwise aic regression
+model <- lm(y ~ ., data = surgical)
+ols_step_both_aic(model, details = TRUE)
+```
+
+
+### Notes on stepwise
+A fundamental problem with stepwise regression is that some real explanatory variables that have causal effects on the dependent variable may happen to not be statistically significant, while nuisance variables may be coincidentally significant. As a result, the model may fit the data well in-sample, but do poorly out-of-sample.
+
+Many Big-Data researchers believe that, the larger the number of possible explanatory variables, the more useful is stepwise regression for selecting explanatory variables. The reality is that stepwise regression is less effective the larger the number of potential explanatory variables. Stepwise regression does not solve the Big-Data problem of too many explanatory variables. Big Data exacerbates the failings of stepwise regression. [reference](https://journalofbigdata.springeropen.com/articles/10.1186/s40537-018-0143-6)
+
+## Residual Diagnostics
+
+```{r, echo=FALSE, message=FALSE}
+library(olsrr)
+library(ggplot2)
+library(gridExtra)
+library(nortest)
+library(goftest)
+```
+
+### Introduction
+
+olsrr offers tools for detecting violation of standard regression assumptions. Here we take a look  at residual diagnostics. The standard regression assumptions include the following about residuals/errors:
+
+- The error has a normal distribution (normality assumption).
+- The errors have mean zero.
+- The errors have same but unknown variance (homoscedasticity assumption).
+- The error are independent of each other (independent errors assumption). 
+
+### Residual QQ Plot
+
+Graph for detecting violation of normality assumption.
+
+```{r qqresid, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_qq(model)
+```
+
+### Residual Normality Test
+
+Test for detecting violation of normality assumption.
+
+```{r normtest}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_normality(model)
+```
+
+Correlation between observed residuals and expected residuals under normality.
+
+```{r corrtest}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_correlation(model)
+```
+
+### Residual vs Fitted Values Plot
+
+It is a scatter plot of residuals on the y axis and fitted values on the x axis to detect non-linearity, unequal error variances, and outliers. 
+
+**Characteristics of a well behaved residual vs fitted plot:**
+
+- The residuals spread randomly around the 0 line indicating that the relationship is linear.
+- The residuals form an approximate horizontal band around the 0 line indicating homogeneity of error variance.
+- No one residual is visibly away from the random pattern of the residuals indicating that there are no outliers.
+
+```{r rvsfplot, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_fit(model)
+```
+
+
+### Residual Histogram
+
+Histogram of residuals for detecting violation of normality assumption.
+
+```{r residhist, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_hist(model)
+```
+
+## Heteroscedasticity
+
+```{r, echo=FALSE, message=FALSE}
+library(olsrr)
+library(ggplot2)
+library(gridExtra)
+library(nortest)
+library(goftest)
+```
+
+### Introduction
+
+One of the assumptions made about residuals/errors in OLS regression is that the errors have the same but unknown variance. This is known as constant variance or homoscedasticity. When this assumption is violated, the problem is known as heteroscedasticity.
+
+#### Consequences of Heteroscedasticity
+
+- The OLS estimators and regression predictions based on them remains unbiased and consistent.
+- The OLS estimators are no longer the BLUE (Best Linear Unbiased Estimators) because they are no longer efficient, so the regression predictions will be inefficient too.
+- Because of the inconsistency of the covariance matrix of the estimated regression coefficients, the tests of hypotheses, (t-test, F-test) are no longer valid.
+
+**olsrr** provides the following 4 tests for detecting heteroscedasticity:
+
+- Bartlett Test
+- Breusch Pagan Test
+- Score Test
+- F Test
+
+### Bartlett Test
+
+Bartlett's test is used to test if variances across samples is equal. It is sensitive to departures from normality. The Levene test is an alternative test that is less sensitive to departures from normality.
+
+You can perform the test using 2 continuous variables, one continuous and one grouping variable, a formula or a linear model. 
+
+#### Use grouping variable
+```{r bartlett1}
+ols_test_bartlett(hsb, 'read', group_var = 'female')
+```
+
+#### Using variables
+```{r bartlett2}
+ols_test_bartlett(hsb, 'read', 'write')
+```
+
+
+### Breusch Pagan Test
+
+Breusch Pagan Test was introduced by Trevor Breusch and Adrian Pagan in 1979. It is used to test for heteroskedasticity in a linear regression model and assumes that the error terms are normally distributed. It tests whether the variance of the errors from a regression is dependent on the values of the independent variables. It is a $\chi^{2}$ test.
+
+You can perform the test using the fitted values of the model, the predictors in the model and a subset of the independent variables. It includes options to perform multiple tests and p value adjustments. The options for p value adjustments include Bonferroni, Sidak and Holm's method.
+
+#### Use fitted values of the model
+
+```{r bp11}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model)
+```
+
+#### Use independent variables of the model
+
+```{r bp2}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model, rhs = TRUE)
+```
+
+#### Use independent variables of the model and perform multiple tests
+
+```{r bp3}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model, rhs = TRUE, multiple = TRUE)
+```
+
+#### Bonferroni p value Adjustment
+
+```{r bp4}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model, rhs = TRUE, multiple = TRUE, p.adj = 'bonferroni')
+```
+
+#### Sidak p value Adjustment
+
+```{r bp5}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model, rhs = TRUE, multiple = TRUE, p.adj = 'sidak')
+```
+
+#### Holm's p value Adjustment
+
+```{r bp6}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model, rhs = TRUE, multiple = TRUE, p.adj = 'holm')
+```
+
+### Score Test
+
+Test for heteroskedasticity under the assumption that the errors are independent and identically distributed (i.i.d.). You can perform the test using the fitted values of the model, the predictors in the model and a subset of the independent variables.
+
+#### Use fitted values of the model
+
+```{r score1}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_score(model)
+```
+
+#### Use independent variables of the model
+
+```{r score2}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_score(model, rhs = TRUE)
+```
+
+#### Specify variables
+
+```{r score3}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_score(model, vars = c('disp', 'hp'))
+```
+
+### F Test
+
+F Test for heteroskedasticity under the assumption that the errors are independent and identically distributed (i.i.d.). You can perform the test using the fitted values of the model, the predictors in the model and a
+subset of the independent variables.
+
+#### Use fitted values of the model
+
+```{r ftest1}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_f(model)
+```
+
+#### Use independent variables of the model
+
+```{r ftest2}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_f(model, rhs = TRUE)
+```
+
+#### Specify variables
+
+```{r ftest3}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_f(model, vars = c('disp', 'hp'))
+```
+
+## Measures of Influence
+
+
+```{r, echo=FALSE, message=FALSE}
+library(olsrr)
+library(ggplot2)
+library(gridExtra)
+library(nortest)
+library(goftest)
+```
+
+### Introduction
+
+It is possible for a single observation to have a great influence on the results of a regression analysis. It is therefore important to detect influential observations and to take them into consideration when interpreting the results.
+
+**olsrr** offers the following tools to detect influential observations:
+
+- Cook's D Bar Plot
+- Cook's D Chart
+- DFBETAs Panel
+- DFFITs Plot
+- Studentized Residual Plot
+- Standardized Residual Chart
+- Studentized Residuals vs Leverage Plot
+- Deleted Studentized Residual vs Fitted Values Plot
+- Hadi Plot
+- Potential Residual Plot
+
+#### Cook's D Bar Plot
+
+Bar Plot of Cook's distance to detect observations that strongly influence fitted values of the model. Cook's distance was introduced by American statistician R Dennis Cook in 1977. It is used to identify influential data points. It depends on both the residual and leverage i.e it takes it account both the **x** value and **y** value of the observation.
+
+**Steps to compute Cook's distance:**
+
+- delete observations one at a time.
+- refit the regression model on remaining $(n - 1)$ observations
+- examine how much all of the fitted values change when the ith observation is deleted.
+
+A data point having a large cook's d indicates that the data point strongly influences the fitted values.
+
+```{r ckdbp, fig.width=7, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_cooksd_bar(model)
+```
+
+### Cook's D Chart
+
+Chart of Cook's distance to detect observations that strongly influence fitted values of the model.
+
+```{r ckchart, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_cooksd_chart(model)
+```
+
+### DFBETAs Panel
+
+DFBETA measures the difference in each parameter estimate with and without the influential point. There is a DFBETA for each data point i.e if there are n observations and k variables, there will be $n * k$ DFBETAs. In general, large values of DFBETAS indicate observations that are influential in estimating a given parameter. Belsley, Kuh, and Welsch recommend 2 as a general cutoff value to indicate influential observations and 
+$\frac{2}{\sqrt{n}}$ as a size-adjusted cutoff.
+
+```{r dfbpanel, fig.width=7, fig.height=7, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt, data = mtcars)
+ols_plot_dfbetas(model)
+```
+
+### DFFITS Plot
+
+Proposed by Welsch and Kuh (1977). It is the scaled difference between the $i^{th}$ fitted value obtained from the full data and the $i^{th}$ fitted value obtained by deleting the $i^{th}$ observation. DFFIT - difference in fits, is used to identify influential data points. It quantifies the number of standard deviations that the fitted value changes when the ith data point is omitted.
+ 
+**Steps to compute DFFITs:**
+
+- delete observations one at a time.
+- refit the regression model on remaining $ {n - 1} $ observations
+- examine how much all of the fitted values change when the ith observation is deleted.
+
+An observation is deemed influential if the absolute value of its DFFITS value is greater than: 
+
+$${2}*{\frac{\sqrt{(p + 1)}}{(n - p -1)}}$$
+
+where n is the number of observations and p is the number of predictors including intercept.
+
+```{r dfitsplot, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_dffits(model)
+```
+
+### Studentized Residual Plot
+
+Plot for detecting outliers. Studentized deleted residuals (or externally studentized residuals) is the deleted residual divided by its estimated standard deviation. Studentized residuals are going to be more effective for  detecting outlying Y observations than standardized residuals. If an observation has an externally studentized residual that is larger than 3 (in absolute value) we can call it an outlier.
+
+```{r srplot, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_stud(model)
+```
+
+### Standardized Residual Chart
+
+Chart for detecting outliers. Standardized residual (internally studentized) is the residual divided by estimated standard deviation.
+
+```{r srchart, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_stand(model)
+```
+
+### Studentized Residuals vs Leverage Plot
+
+Graph for detecting influential observations.
+
+```{r studlev, fig.width=7, fig.height=5, fig.align='center'}
+model <- lm(read ~ write + math + science, data = hsb)
+ols_plot_resid_lev(model)
+```
+
+### Deleted Studentized Residual vs Fitted Values Plot
+
+Graph for detecting outliers.
+
+```{r dsrvsp, fig.width=7, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_stud_fit(model)
+```
+
+### Hadi Plot
+
+Hadi's measure of influence based on the fact that influential observations can be present in either the response variable or in the predictors or both. The plot is used to detect influential observations based on Hadi's measure.
+
+```{r hadiplot, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_hadi(model)
+```
+
+### Potential Residual Plot
+
+Plot to aid in classifying unusual observations as high-leverage points, outliers, or a combination of both.
+
+```{r potres, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_pot(model)
+```
+
+## Collinearity Diagnostics, Model Fit & Variable Contribution
+
+```{r, echo=FALSE, message=FALSE}
+library(olsrr)
+library(ggplot2)
+library(gridExtra)
+library(nortest)
+library(goftest)
+```
+
+### Collinearity Diagnostics
+
+Collinearity implies two variables are near perfect linear combinations of one another. Multicollinearity involves more than two variables. In the presence of multicollinearity, regression estimates are unstable and have high standard errors.
+
+#### VIF
+
+Variance inflation factors measure the inflation in the variances of the parameter estimates due to collinearities that exist among the predictors. It is a measure of how much the variance of the estimated regression coefficient $\beta_{k}$ is "inflated" by the existence of correlation among the predictor variables in the model. A VIF of 1 means that there is no correlation among the kth predictor and the remaining predictor variables, and hence the variance of $\beta_{k}$ is not inflated at all. The general rule of thumb is that VIFs
+exceeding 4 warrant further investigation, while VIFs exceeding 10 are signs of serious multicollinearity requiring correction.
+
+Steps to calculate VIF:
+
+- Regress the $k^{th}$ predictor on rest of the predictors in the model.
+- Compute the ${R}^{2}_{k}$
+
+$$VIF = \frac{1}{1 - {R}^{2}_{k}} = \frac{1}{Tolerance}$$
+
+```{r viftol}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_vif_tol(model)
+```
+
+#### Tolerance
+
+Percent of variance in the predictor that cannot be accounted for by other
+predictors.
+
+Steps to calculate tolerance:
+
+- Regress the $k^{th}$ predictor on rest of the predictors in the model.
+- Compute the ${R}^{2}_{k}$
+
+$$Tolerance = 1 - {R}^{2}_{k}$$
+
+
+#### Condition Index
+
+Most multivariate statistical approaches involve decomposing a correlation matrix into linear combinations of variables. The linear combinations are chosen so that the first combination has the largest possible variance (subject to some restrictions we won't discuss), the second combination has the next largest variance, subject to being uncorrelated with the first, the third has the largest possible variance, subject to being uncorrelated with the first and second, and so forth. The variance of each of these linear combinations is called an eigenvalue. Collinearity is spotted by finding 2 or more variables that have large proportions of variance (.50 or more) that correspond to large condition indices. A rule of thumb is to label as large those condition indices in the range of 30 or larger.
+
+
+```{r cindex}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_eigen_cindex(model)
+```
+
+#### Collinearity Diagnostics
+
+```{r colldiag2}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_coll_diag(model)
+```
+
+### Model Fit Assessment
+
+#### Residual Fit Spread Plot
+
+Plot to detect non-linearity, influential observations and outliers. Consists of side-by-side quantile plots of the centered fit and the residuals. It shows how much variation in the data is explained by the fit and how much remains in the residuals. For inappropriate models, the spread of the residuals in such a plot is often greater than the spread of the centered fit.
+
+```{r rfsplot1, fig.width=10, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_fit_spread(model)
+```
+
+#### Part & Partial Correlations
+
+##### Correlations
+
+Relative importance of independent variables in determining **Y**. How much each variable uniquely contributes to $R^{2}$ over and above that which can be accounted for by the other predictors.
+
+##### Zero Order
+
+Pearson correlation coefficient between the dependent variable and the independent variables.
+
+##### Part
+
+Unique contribution of independent variables. How much $R^{2}$ will decrease if that variable is removed from the model?
+
+##### Partial
+
+How much of the variance in **Y**, which is not estimated by the other independent variables in the model, is estimated by the specific variable?
+
+```{r partcor}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_correlations(model)
+```
+
+#### Observed vs Predicted Plot
+
+Plot of observed vs fitted values to assess the fit of the model. Ideally, all your points should be close to a regressed diagonal line. Draw such a diagonal line within your graph and check out where the points lie. If your model had a high R Square, all the points would be close to this diagonal line. The lower the R Square, the weaker the Goodness of fit of your model, the more foggy or dispersed your points are from this diagonal line.
+
+```{r obspred, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_obs_fit(model)
+```
+
+#### Lack of Fit F Test
+
+Assess how much of the error in prediction is due to lack of model fit. The residual sum of squares resulting from a regression can be decomposed into 2 components:
+
+- Due to lack of fit
+- Due to random variation
+
+If most of the error is due to lack of fit and not just random error, the model should be discarded and a new model must be built. The lack of fit F test works only with simple linear regression. Moreover, it is important that the data contains repeat observations i.e. replicates for at least one of the values of the predictor x. This test generally only applies to datasets with plenty of replicates.
+
+```{r lackfit}
+model <- lm(mpg ~ disp, data = mtcars)
+ols_pure_error_anova(model)
+```
+
+#### Diagnostics Panel
+
+Panel of plots for regression diagnostics
+
+```{r diagpanel, fig.width=10, fig.height=10, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_diagnostics(model)
+```
+ 
+
+### Variable Contributions
+
+#### Residual vs Regressor Plots
+
+Graph to determine whether we should add a new predictor to the model already containing other predictors. The residuals from the model is regressed on the new predictor and if the plot shows non random pattern, you should consider adding the new predictor to the model.
+
+```{r rvsrplot, fig.width=5, fig.height=5, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt, data = mtcars)
+ols_plot_resid_regressor(model, 'drat')
+```
+
+
+#### Added Variable Plot
+
+Added variable plot provides information about the marginal importance of a predictor variable $X_{k}$, given the other predictor variables already in the model. It shows the marginal importance of the variable in reducing the residual variability. 
+
+The added variable plot was introduced by Mosteller and Tukey (1977). It enables us to visualize the regression coefficient of a new variable being considered to be included in a model. The plot can be constructed for each predictor variable.
+
+Let us assume we want to test the effect of adding/removing variable *X* from a model. Let the response variable of the model be *Y*
+
+Steps to construct an added variable plot:
+
+- Regress *Y* on all variables other than *X* and store the residuals (*Y* residuals).
+- Regress *X* on all the other variables included in the model (*X* residuals).
+- Construct a scatter plot of *Y* residuals and *X* residuals.
+
+What do the *Y* and *X* residuals represent? The *Y* residuals represent the part of **Y** not explained by all the variables other than X. The *X* residuals represent the part of **X** not explained by other variables. The slope of the line fitted to the points in the added variable plot is equal to the regression coefficient when **Y** is regressed on all variables including **X**.
+
+A strong linear relationship in the added variable plot indicates the increased importance of the contribution of **X** to the model already containing the other predictors.
+
+```{r avplot, fig.width=10, fig.height=10, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_added_variable(model)
+```
+
+#### Residual Plus Component Plot
+
+The residual plus component plot was introduced by Ezekeil (1924). It was called as Partial Residual Plot by Larsen and McCleary (1972). Hadi and Chatterjee (2012) called it the residual plus component plot.
+
+Steps to construct the plot:
+
+- Regress **Y** on all variables including **X** and store the residuals (**e**).
+- Multiply **e** with regression coefficient of **X** (**eX**).
+- Construct scatter plot of **eX** and **X**
+
+The residual plus component plot indicates whether any non-linearity is present in the relationship between **Y** and **X** and can suggest possible transformationsfor linearizing the data.
+
+```{r cplusr, fig.width=10, fig.height=10, fig.align='center'}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_comp_plus_resid(model)
+```
+
+## A Short Introduction to the blorr Package
+
+### Introduction
+
+The blorr package offers tools for building and validating binary logistic regression models. It is most suitable for beginner/intermediate R users and those who teach statistics using R. The APIis very simple and most of the functions take either a `data.frame`/`tibble` or a `model` as input. **blorr** useconsistent prefix **blr_** for easy tab completion.
+
+#### Installation
+
+You can install **blorr** using:
+
+```{r install, eval=FALSE}
+install.packages("blorr")
+```
+
+The documentation of the package can be found at https://blorr.rsquaredacademy.com. 
+This vignette gives a quick tour of the package.
+
+##### Libraries
+
+The following libraries are used in the examples in the vignette:
+
+```{r libs}
+library(blorr)
+library(magrittr)
+```
+
+#### Data
+
+To demonstrate the features of blorr, we will use the bank marketing data set. The data is related with direct marketing campaigns of a Portuguese banking institution. The marketing campaigns were based on phone calls. Often, more than one contact to the same client was required, in order to access if the product (bank term deposit) would be ('yes') or not ('no') subscribed. It contains a random sample (~4k) of the original data set which can be found at https://archive.ics.uci.edu/ml/datasets/bank+marketing.
+
+### Bivariate Analysis
+
+Let us begin with careful bivariate analysis of each possible variable and the outcome variable. We will use information value and likelihood ratio chi square test for selecting the initial set of predictors for our model. The bivariateanalysis is currently avialable for categorical predictors only.
+
+```{r bivar1}
+blr_bivariate_analysis(bank_marketing, y, job, marital, education, default, 
+  housing, loan, contact, poutcome)
+```
+
+#### Weight of Evidence & Information Value
+
+Weight of evidence (WoE) is used to assess the relative risk of diferent attributes for a characteristic and as a means to transform characteristics into variables. It is also a very useful tool for binning. The WoE for any group with average odds is zero. A negative WoE indicates that the proportion of defaults is higher for that attribute than the overall proportion and indicates higher risk.
+
+The information value is used to rank order variables in terms of their predictive power. A high information value indicates a high ability to discriminate. Values for the information value will always be positive and may be above 3 when assessing highly predictive characteristics. Characteristics with information values less than 0:10 are typically viewed as weak, while values over 0.30 are sought after.
+
+```{r woe1}
+blr_woe_iv(bank_marketing, job, y)
+```
+##### Plot
+
+```{r woeplot, fig.align='center', fig.width=7, fig.height=5}
+k <- blr_woe_iv(bank_marketing, job, y)
+plot(k)
+```
+
+##### Multiple Variables
+
+We can generate the weight of evidence and information value for multiple variables using `blr_woe_iv_stats()`.
+
+```{r woe2}
+blr_woe_iv_stats(bank_marketing, y, job, marital, education)
+```
+
+`blr_woe_iv()` and `blr_woe_iv_stats()` are currently available for categorical predictors only.
+
+### Stepwise Selection
+
+For the initial/ first cut model, all the independent variables are put into the model. Our goal is to include a limited number of independent variables (5-15) which are all significant, without sacrificing too much on the model performance. The rationale behind not-including too many variables is that the model would be over fitted and would become unstable when tested on the validation sample. The variable reduction is done using forward or backward or stepwise variable selection procedures. We will use `blr_step_aic_both()` to shortlist predictors for our model.
+
+#### Model
+
+```{r mod1}
+model <- glm(y ~ ., data = bank_marketing, family = binomial(link = 'logit'))
+```
+
+##### Selection Summary
+
+```{r stepwise11}
+blr_step_aic_both(model)
+```
+
+##### Plot
+
+```{r stepwise3, fig.align='center', fig.width=7, fig.height=5}
+model %>%
+  blr_step_aic_both() %>%
+  plot()
+```
+
+### Regression Output
+
+#### Model
+
+We can use bivariate analysis and stepwise selection procedure to shortlist predictors and build the model using the `glm()`. The predictors used in the below model are for illustration purposes and not necessarily shortlisted from the bivariate analysis and variable selection procedures.
+
+```{r model}
+model <- glm(y ~  age + duration + previous + housing + default +
+             loan + poutcome + job + marital, data = bank_marketing, 
+             family = binomial(link = 'logit'))
+```
+
+Use `blr_regress()` to generate comprehensive regression output. It accepts either of the following
+
+- model built using `glm()`
+- model formula and data 
+
+##### Using Model
+
+Let us look at the output generated from `blr_regress()`:
+
+```{r reg1}
+blr_regress(model)
+```
+
+If you want to examine the odds ratio estimates, set `odd_conf_limit` to `TRUE`. The odds ratio estimates are not explicitly computed as we observed considerable increase in computation time when dealing with large data sets.
+
+##### Using Formula
+
+Let us use the model formula and the data set to generate the above results.
+
+```{r reg2}
+blr_regress(y ~  age + duration + previous + housing + default +
+             loan + poutcome + job + marital, data = bank_marketing)
+```
+
+### Model Fit Statistics
+
+Model fit statistics are available to assess how well the model fits the data and to compare two different models.The output includes likelihood ratio test, AIC, BIC and a host of pseudo r-squared measures. You can read more about pseudo r-squared at https://stats.idre.ucla.edu/other/mult-pkg/faq/general/faq-what-are-pseudo-r-squareds/.
+
+#### Single Model
+
+```{r mfs}
+blr_model_fit_stats(model)
+```
+
+### Model Validation
+
+#### Confusion Matrix
+
+In the event of deciding a cut-off point on the probability scores of a logistic regression model, a confusion matrix is created corresponding to a particular cut-off. The observations with probability scores above the cut-off score are predicted to be events and those below the cut-off score, as non-events. The confusion matrix, a 2X2 table, then calculates the number of correctly classified and miss-classified observations.
+
+```{r val5}
+blr_confusion_matrix(model, cutoff = 0.5)
+```
+
+The validity of a cut-off is measured using sensitivity, specificity and accuracy.
+
+- **Sensitivity**: The % of correctly classified events out of all events = TP / (TP + FN)
+- **Specificity**: The % of correctly classified non-events out of all non-events = TN / (TN + FP)
+- **Accuracy**: The % of correctly classified observation over all observations = (TP + TN) / (TP + FP + TN + FN)
+
+- *True Positive (TP)* : Events correctly classified as events.
+- *True Negative (TN)* : Non-Events correctly classified as non-events.
+- *False Positive (FP)*: Non-events miss-classified as events.
+- *False Negative (FN)*: Events miss-classified as non-events.
+
+For a standard logistic model, the higher is the cut-off, the lower will be the sensitivity and the higher would be the specificity. As the cut-off is decreased, sensitivity will go up, as then more events would be captured. Also, specificity will go down, as more non-events would miss-classified as events. Hence a trade-off is done based on the requirements. For example, if we are looking to capture as many events as possible, and we can afford to have miss-classified non-events, then a low cut-off is taken.
+
+#### Hosmer Lemeshow Test
+
+Hosmer and Lemeshow developed a goodness-of-fit test for logistic regression models with binary responses. The test involves dividing the data into approximately ten groups of roughly equal size based on the percentiles of the estimated probabilities. The observations are sorted in increasing order of their estimated probability of having an even outcome. The discrepancies between the observed and expected number of observations in these groups are summarized by the Pearson chi-square statistic, which is then compared to chi-square distribution with t degrees of freedom, where t is the number of groups minus 2. Lower values of Goodness-of-fit are preferred.
+
+```{r val6}
+blr_test_hosmer_lemeshow(model)
+```
+
+#### Gains Table & Lift Chart
+
+A lift curve is a graphical representation of the % of cumulative events captured at a specific cut-off. The cut-off can be a particular decile or a percentile. Similar, to rank ordering procedure, the data is in descending order of the scores and is then grouped into deciles/percentiles. The cumulative number of observations and events are then computed for each decile/percentile. The lift curve is the created using the cumulative % population as the x-axis and the cumulative percentage of events as the y-axis. 
+
+```{r val1}
+blr_gains_table(model)
+```
+
+##### Lift Chart
+
+```{r val7, fig.align='center', fig.width=7, fig.height=5}
+model %>%
+	blr_gains_table() %>%
+	plot()
+```
+
+#### ROC Curve
+
+ROC curve is a graphical representation of the validity of cut-offs for a logistic regression model. The ROC curve is plotted using the sensitivity and specificity for all possible cut-offs, i.e., all the probability scores. The graph is plotted using sensitivity on the y-axis and 1-specificity on the x-axis. Any point on the ROC curve represents a sensitivity X (1-specificity) measure corresponding to a cut-off. The area under the ROC curve is used as a validation measure for the model – the bigger the area the better is the model.
+
+```{r val2, fig.align='center', fig.width=7, fig.height=5}
+model %>%
+	blr_gains_table() %>%
+  blr_roc_curve()
+```
+
+#### KS Chart
+
+The KS Statistic is again a measure of model efficiency, and it is created using the lift curve. The lift curve is created to plot % events. If we also plot % non-events on the same scale, with % population at x-axis, we would get another curve. The maximum distance between the lift curve for events and that for non-events is termed as KS. For a good model, KS should be big (>=0.3) and should occur as close to the event rate as possible.
+
+```{r val3, fig.align='center', fig.width=7, fig.height=5}
+model %>%
+	blr_gains_table() %>%
+  blr_ks_chart()
+```
+
+#### Decile Lift Chart
+
+The decile lift chart displays the lift over the global mean event rate for each decile. For a model with good discriminatory power, the top deciles should have an event/conversion rate greater than the global mean.
+
+```{r val9, fig.align='center', fig.width=7, fig.height=5}
+model %>%
+  blr_gains_table() %>%
+  blr_decile_lift_chart()
+```
+
+#### Capture Rate by Decile
+
+If the model has good discriminatory power, the top deciles should have a higher event/conversion rate compared to the bottom deciles.  
+
+```{r val8, fig.align='center', fig.width=7, fig.height=5}
+model %>%
+  blr_gains_table() %>%
+  blr_decile_capture_rate()
+```
+
+#### Lorenz Curve
+
+The Lorenz curve is a simple graphic device which illustrates the degree of inequality in the distribution of thevariable concerned. It is a visual representation of inequality used to measure the discriminatory power of the predictive model.
+
+```{r val4, fig.align='center', fig.width=7, fig.height=5}
+blr_lorenz_curve(model)
+```
+
+### Residual & Influence Diagnostics
+
+**blorr** can generate 22 plots for residual, influence and leverage diagnostics.
+
+##### Influence Diagnostics
+
+```{r infl, fig.align='center', fig.height=10, fig.width=8}
+blr_plot_diag_influence(model)
+```
+
+##### Leverage Diagnostics
+
+```{r lev, fig.align='center', fig.height=7, fig.width=7}
+blr_plot_diag_leverage(model)
+```
+
+##### Fitted Values Diagnostics
+
+```{r fit, fig.align='center', fig.height=7, fig.width=7}
+blr_plot_diag_fit(model)
+```
+

@@ -1,0 +1,427 @@
+---
+title: "HW 12 regression in r"
+author:
+  - 'Alumno: Daniel Nuño, daniel.nuno@iteso.mx'
+  - 'Alumno: David Cisneros'
+  - 'Alumno: Juan Maro Ochoa'
+  - 'Alumno: Rodrigo Huerta'
+date: "4/18/2022"
+output:
+  html_notebook:
+    toc: yes
+    toc_float: yes
+    theme: cosmo
+    highlight: tango
+  github_document:
+    toc: yes
+    dev: jpeg
+  html_document:
+    toc: yes
+    df_print: paged
+subtitle: 'Problem 1'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Chapter 3, exercise 8
+
+This question involves the use of simple linear regression on the `Auto` data set.
+```{r, echo=FALSE}
+library(ISLR)
+```
+
+(a) Use the `lm()` function to perform a simple linear regression with mpg as the response and `horsepower` as the predictor. Use the `summary()` function to print the results. Comment on the output.
+For example:
+```{r}
+summary(Auto)
+```
+```{r}
+lm.fit = lm(mpg ~ horsepower)
+summary(lm.fit)
+```
+I. is there a relationship between the predictor and the response?
+
+By testing the null hypothesis of all regression coefficients equal to zero, it shows a relationship between horsepower and mpg. Since the F-statistic is far larger than 1 and the p-value of the F-statistic is close to zero we can reject the null hypothesis and state there is a statistically significant relationship between horsepower and mpg.
+
+II.How strong is the relationship between the predictor and the response?
+
+The RSE of the lm.fit was 4.906 which indicates a percentage error of 20.9248%. The R2 of the lm.fit was about 0.6059, meaning 60.5948% of the variance in mpg is explained by horsepower.
+
+III. Is the relationship between the predictor and the response positive or negative?
+
+The relationship between mpg and horsepower is negative. The more horsepower an automobile has the linear regression indicates the less mpg fuel efficiency the automobile will have.
+
+IV. What is the predicted mpg associated with a horsepower of 98? What are the associated 95 % confidence and prediction intervals?
+
+```{r}
+predict(lm.fit, data.frame(horsepower=c(98)), interval="confidence")
+```
+
+```{r}
+predict(lm.fit, data.frame(horsepower=c(98)), interval="prediction")
+```
+
+(b) Plot the response and the predictor. Use the abline() function to display the least squares regression line.
+```{r}
+plot(horsepower, mpg)
+abline(lm.fit)
+```
+
+(c) Use the plot() function to produce diagnostic plots of the least squares regression fit. Comment on any problems you see with the fit.
+```{r}
+par(mfrow=c(2,2))
+plot(lm.fit)
+```
+
+Base on the above plots, the is evidence of non-linearity.
+
+## Chapter 3, exercise 9
+This question involves the use of multiple linear regression on the `Auto` data set.
+
+(a) Produce a scatterplot matrix which includes all of the variables in the data set.
+```{r}
+pairs(Auto)
+```
+(b) Compute the matrix of correlations between the variables using the function cor(). You will need to exclude the name variable, cor() which is qualitative.
+
+```{r}
+cor(subset(Auto, select=-name))
+```
+(c) Use the lm() function to perform a multiple linear regression with mpg as the response and all other variables except name as the predictors. Use the summary() function to print the results. Comment on the output. For instance:
+```{r}
+lm.fit1 = lm(mpg~.-name, data=Auto)
+summary(lm.fit1)
+```
+
+  I. Is there a relationship between the predictors and the response? There is a relationship between the predictors and the response by testing the null hypothesis of whether all the regression coefficients are zero. F-statistic (the one that evaluates the complete model) p-value is very small, indicating evidence against the null hypothesis.
+  
+  II. Judging by each t-statistic (the one that test each predictor), we see that displacement, weight, year and origin have a statistically significant relationship, while cylinders, horsepower, and acceleration do not.
+  
+  III. Year coefficient suggest that for every one year, mps increases by the coefficient. Cars become more efficient every year by almost 1 mpg/year.
+  
+(d) Use the plot() function to produce diagnostic plots of the linear regression fit. Comment on any problems you see with the fit. Do the residual plots suggest any unusually large outliers? Does the leverage plot identify any observations with unusually high leverage?
+
+```{r}
+par(mfrow=c(2,2))
+plot(lm.fit1)
+```
+
+The fit does not appear to be accurate because there is a discernible curve pattern to the residuals plots. From the leverage plot, point 14 appears to have high leverage, although not a high magnitude residual.
+
+```{r}
+plot(predict(lm.fit1), rstudent(lm.fit1))
+```
+
+(e) Use the * and : symbols to fit linear regression models with interaction effects. Do any interactions appear to be statistically significant?
+
+```{r}
+lm.fit2 = lm(mpg~cylinders*displacement+displacement*weight)
+summary(lm.fit2)
+```
+Cylinders is the most correlated to displacement, followed by displacement to weight. From the p-values, we can see that the interaction between displacement and weight is statistically significant, while the interaction between cylinders and displacement is not.
+
+(f) Try a few different transformations of the variables, such as $ log(X) $, $ \sqrt{X} $, $ X^2 $. Comment on your findings.
+
+```{r}
+lm.fit3 = lm(mpg~log(weight)+sqrt(horsepower)+acceleration+I(acceleration^2))
+summary(lm.fit3)
+```
+```{r}
+par(mfrow=c(2,2))
+plot(lm.fit3)
+```
+
+```{r}
+plot(predict(lm.fit3), rstudent(lm.fit3))
+```
+
+From the p-values, the log(weight), sqrt(horsepower), and acceleration^2 all have statistical significance of some sort. The residuals plot has less of a discernible pattern than the plot of all linear regression terms. The studentized residuals displays potential outliers (>3). The leverage plot indicates more than three points with high leverage.
+
+However, 2 problems are observed from the above plots: 1) the residuals vs fitted plot indicates heteroskedasticity (unconstant variance over mean) in the model. 2) The Q-Q plot indicates somewhat unnormality of the residuals.
+
+## Chapter 3, exercise 10
+
+This question should be answered using the Carseats data set.
+
+(a) Fit a multiple regression model to predict Sales using Price, Urban, and US.
+
+```{r}
+summary(Carseats)
+```
+```{r}
+attach(Carseats)
+lm.fit = lm(Sales~Price+Urban+US)
+summary(lm.fit)
+```
+
+(b) Provide an interpretation of each coefficient in the model. Becareful—some of the variables in the model are qualitative!
+
+R fit automatically changed Urban and US to 1 as a dummy variable.
+
+There is a relationship between price and sales given the low p-value of the t-statistic. The relationship is negative.
+
+Urban coefficient is negative however, the p-value is above the recommend alpha.
+
+uSYes The linear regression suggests there is a relationship between whether the store is in the US or not and the amount of sales. The coefficient states a positive relationship between USYes and Sales: if the store is in the US, the sales will increase by approximately 1201 units.
+
+(c) Write out the model in equation form, being careful to handle the qualitative variables properly.
+
+Sales = 13.04 -0.05 Price -0.02 UrbanYes + 1.20 USYes
+
+(d) For which of the predictors can you reject the null hypothesis H0 : βj = 0?
+
+Price and USYes, based on the p-values, F-statistic, and p-value of the F-statistic.
+
+(e) On the basis of your response to the previous question, fit a smaller model that only uses the predictors for which there is evidence of association with the outcome.
+
+```{r}
+lm.fit2 = lm(Sales ~ Price + US)
+summary(lm.fit2)
+```
+(f) How well do the models in (a) and (e) fit the data?
+
+R^2 of the liner regression suggest that the model from (e) is slightly better.
+
+(g) Using the model from (e), obtain 95 % confidence intervals for the coefficient(s).
+
+```{r}
+confint(lm.fit2)
+```
+
+(h) Is there evidence of outliers or high leverage observations in the model from (e)?
+
+```{r}
+plot(predict(lm.fit2), rstudent(lm.fit2))
+```
+Student residuals look to be bounded by -3 to 3. Not potential outliers.
+
+```{r}
+par(mfrow=c(2,2))
+plot(lm.fit2)
+```
+
+The are few observations that greatly exceed $ (p + 1) / n $ on the leverage-statistic plot that suggest the corresponding points have high leverage.
+
+## Chapter 4, exercise 10
+
+This question should be answered using the Weekly data set, which is part of the ISLR package. This data is similar in nature to the Smarket data from this chapter’s lab, except that it contains 1,089 weekly returns for 21 years, from the beginning of 1990 to the end of 2010.
+```{r, echo=FALSE}
+library(ISLR)
+```
+(a) Produce some numerical and graphical summaries of the Weekly data. Do there appear to be any patterns?
+
+```{r}
+summary(Weekly)
+```
+
+```{r}
+pairs(Weekly)
+```
+
+```{r}
+cor(Weekly[, -9])
+```
+
+(b) Use the full data set to perform a logistic regression with Direction as the response and the five lag variables plus Volume as predictors. Use the summary function to print the results. Do any of the predictors appear to be statistically significant? If so, which ones?
+```{r}
+attach(Weekly)
+glm.fit = glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume,
+              data = Weekly,
+              family = binomial)
+summary(glm.fit)
+
+```
+
+Lag number 2 seems to have some statistical significance with Pr(>z) = 3%
+
+(c) Compute the confusion matrix and overall fraction of correct predictions. Explain what the confusion matrix is telling you about the types of mistakes made by logistic regression.
+```{r}
+glm.probs = predict(glm.fit, type = "response")
+glm.pred = rep("Down", length(glm.probs))
+glm.pred[glm.probs > 0.5] = "Up"
+table(glm.pred, Direction)
+```
+Percentage of correct predictions: (54+557)/(54+557+48+430) = 56.1%. Weeks when the market goes up, the logistic regression is right most of the time, 557/(557+48) = 92.1%. Weeks when the market goes down, the logistic regression is wrong most of the time 54/(430+54) = 11.2%.
+
+(d) Now fit the logistic regression model using a training data period from 1990 to 2008, with Lag2 as the only predictor. Compute the confusion matrix and the overall fraction of correct predictions for the held out data (that is, the data from 2009 and 2010).
+
+```{r}
+train = (Year < 2009)
+Weekly.0910 = Weekly[!train, ]
+glm.fit = glm(Direction ~ Lag2, data = Weekly, family = binomial, subset = train)
+glm.probs = predict(glm.fit, Weekly.0910, type = "response")
+glm.pred = rep("Down", length(glm.probs))
+glm.pred[glm.probs > 0.5] = "Up"
+Direction.0910 = Direction[!train]
+table(glm.pred, Direction.0910)
+```
+```{r}
+mean(glm.pred == Direction.0910)
+```
+The correct predictions percentage 0.625 = (9+56)/(9+5+34+56). Pretty good actually.
+
+(e) Repeat (d) using LDA.
+
+```{r}
+library(MASS)
+lda.fit = lda(Direction ~ Lag2, data = Weekly, subset = train)
+lda.pred = predict(lda.fit, Weekly.0910)
+table(lda.pred$class, Direction.0910)
+```
+```{r}
+mean(lda.pred$class == Direction.0910)
+```
+Using LDA returns the same results percentage.
+
+(f) Repeat (d) using QDA.
+```{r}
+qda.fit = qda(Direction ~ Lag2, data = Weekly, subset = train)
+qda.class = predict(qda.fit, Weekly.0910)$class
+table(qda.class, Direction.0910)
+```
+```{r}
+mean(qda.class == Direction.0910)
+```
+
+58% of accuracy even though the market only went up.
+
+(g) Repeat (d) using KNN with K = 1.
+```{r}
+library(class)
+train.X = as.matrix(Lag2[train])
+test.X = as.matrix(Lag2[!train])
+train.Direction = Direction[train]
+set.seed(1)
+knn.pred = knn(train.X, test.X, train.Direction, k = 1)
+table(knn.pred, Direction.0910)
+```
+```{r}
+mean(knn.pred == Direction.0910)
+```
+Using KNN gives half of times correct results.
+
+(h) Which of these methods appears to provide the best results on this data?
+
+Logistic regression and LDA methods provide similar test error rates.
+
+(i) Experiment with different combinations of predictors, including possible transformations and interactions, for each of the methods. Report the variables, method, and associated confusion matrix that appears to provide the best results on the held out data. Note that you should also experiment with values for K in the KNN classifier.
+
+First consider using lag two interaction with lag one using logistic regression:
+
+```{r}
+# Logistic regression with Lag2:Lag1
+glm.fit = glm(Direction ~ Lag2:Lag1, data = Weekly, family = binomial, subset = train)
+glm.probs = predict(glm.fit, Weekly.0910, type = "response")
+glm.pred = rep("Down", length(glm.probs))
+glm.pred[glm.probs > 0.5] = "Up"
+Direction.0910 = Direction[!train]
+table(glm.pred, Direction.0910)
+```
+```{r}
+mean(glm.pred == Direction.0910)
+```
+Now apply the same to LDA method:
+
+```{r}
+# LDA with Lag2 interaction with Lag1
+lda.fit = lda(Direction ~ Lag2:Lag1, data = Weekly, subset = train)
+lda.pred = predict(lda.fit, Weekly.0910)
+mean(lda.pred$class == Direction.0910)
+```
+
+## Chapter 4, exercise 11
+
+In this problem, you will develop a model to predict whether a given car gets high or low gas mileage based on the Auto data set.
+```{r, echo=FALSE}
+library(ISLR)
+```
+
+(a) Create a binary variable, `mpg01`, that contains a 1 if `mpg` contains a value above its median, and a 0 if `mpg` contains a value below its median. You can compute the median using the `median()` function. Note you may find it helpful to use the `data.frame()` function to create a single data set containing both `mpg01` and the other `Auto` variables.
+```{r}
+summary(Auto)
+```
+
+```{r}
+#attach(Auto)
+mpg01 = rep(0, length(mpg))
+mpg01[mpg > median(mpg)] = 1
+Auto = data.frame(Auto, mpg01)
+```
+
+(b) Explore the data graphically in order to investigate the association between mpg01 and the other features. Which of the other features seem most likely to be useful in predicting mpg01? Scatterplots and boxplots may be useful tools to answer this question. Describe your findings.
+```{r}
+cor(Auto[, -9])
+```
+
+```{r}
+pairs(Auto)
+```
+Anti-correlated with cylinders, weight, displacement, horsepower.
+
+(c) Split the data into a training set and a test set.
+
+```{r}
+train = sample(c(rep(0, 0.7 * nrow(Auto)), rep(1, 0.3 * nrow(Auto))))
+test = !train
+Auto.train = Auto[train, ]
+Auto.test = Auto[test, ]
+mpg01.test = mpg01[test]
+```
+
+(d) Perform LDA on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?
+
+```{r}
+# LDA
+library(MASS)
+lda.fit = lda(mpg01 ~ cylinders + weight + displacement + horsepower, data = Auto)
+lda.pred = predict(lda.fit, Auto.test)
+mean(lda.pred$class != mpg01.test)
+```
+9.09% test error rate.
+
+(e) Perform QDA on the training data in order to predict `mpg01` using the variables that seemed most associated with `mpg01` in (b). What is the test error of the model obtained?
+```{r}
+# QDA
+qda.fit = qda(mpg01 ~ cylinders + weight + displacement + horsepower, data = Auto)
+qda.pred = predict(qda.fit, Auto.test)
+mean(qda.pred$class != mpg01.test)
+```
+9.4% test error rate.
+
+(f) Perform logistic regression on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?
+```{r}
+# Logistic regression
+glm.fit = glm(mpg01 ~ cylinders + weight + displacement + horsepower, data = Auto, family = binomial)
+glm.probs = predict(glm.fit, Auto.test, type = "response")
+glm.pred = rep(0, length(glm.probs))
+glm.pred[glm.probs > 0.5] = 1
+mean(glm.pred != mpg01.test)
+```
+0.09% test error rate.
+
+(g) Perform KNN on the training data, with several values of K, in order to predict mpg01. Use only the variables that seemed most associated with mpg01 in (b). What test errors do you obtain? Which value of K seems to perform the best on this data set?
+
+```{r}
+library(class)
+train.X = cbind(cylinders, weight, displacement, horsepower)[train, ]
+test.X = cbind(cylinders, weight, displacement, horsepower)[test, ]
+train.mpg01 = mpg01[train]
+set.seed(1)
+# KNN(k=1)
+knn.pred = knn(train.X, test.X, train.mpg01, k = 1)
+mean(knn.pred != mpg01.test)
+```
+
+```{r}
+# KNN(k=10)
+knn.pred = knn(train.X, test.X, train.mpg01, k = 10)
+mean(knn.pred != mpg01.test)
+```
+```{r}
+# KNN(k=100)
+knn.pred = knn(train.X, test.X, train.mpg01, k = 100)
+mean(knn.pred != mpg01.test)
+```
+All KNN test resulted in the same value.
